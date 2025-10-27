@@ -1,9 +1,20 @@
 import { useState, useEffect } from 'react';
 import { MapPin, Filter, TrendingUp } from 'lucide-react';
-import { supabase } from '../lib/supabase';
 import { ProductCard } from '../components/ProductCard';
 import { Header } from '../components/Header';
 import type { Database } from '../lib/database.types';
+import { db } from '../lib/firebase';
+import {
+  collection,
+  getDocs,
+  query as fsQuery,
+  where,
+  orderBy,
+  limit as fsLimit,
+  documentId,
+  Query,
+  DocumentData,
+} from 'firebase/firestore';
 
 type Category = Database['public']['Tables']['categories']['Row'];
 type Product = Database['public']['Tables']['products']['Row'] & {
@@ -56,49 +67,75 @@ export function HomePage({ onProductClick }: HomePageProps) {
   };
 
   const loadCategories = async () => {
-    const { data } = await supabase
-      .from('categories')
-      .select('*')
-      .is('parent_id', null)
-      .order('display_order');
-
-    if (data) {
-      setCategories(data);
+    try {
+      const categoriesRef = collection(db, 'categories');
+      // Attempt to filter to root categories and order by display_order
+      const q: Query<DocumentData> = fsQuery(categoriesRef, where('parent_id', '==', null), orderBy('display_order'));
+      const snap = await getDocs(q);
+      const rows: Category[] = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Record<string, unknown>) })) as unknown as Category[];
+      setCategories(rows);
+    } catch {
+      // Fallback to unfiltered categories if index missing
+      const snap = await getDocs(collection(db, 'categories'));
+      const rows: Category[] = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Record<string, unknown>) })) as unknown as Category[];
+      setCategories(rows.filter((c) => c.parent_id === null).sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0)));
     }
   };
 
   const loadProducts = async () => {
     setLoading(true);
 
-    let query = supabase
-      .from('products')
-      .select(`
-        *,
-        seller_profiles (
-          store_name,
-          rating_avg,
-          logo_url
-        )
-      `)
-      .eq('status', 'active')
-      .order('created_at', { ascending: false })
-      .limit(50);
+    try {
+      const productsRef = collection(db, 'products');
+      const constraints: unknown[] = [where('status', '==', 'active'), orderBy('created_at', 'desc'), fsLimit(50)];
+      if (selectedCategory) {
+        constraints.unshift(where('category_id', '==', selectedCategory));
+      }
+      const q = fsQuery(productsRef, ...(constraints as [unknown, ...unknown[]]));
+      const snap = await getDocs(q);
+      let rows: Product[] = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Record<string, unknown>) })) as unknown as Product[];
 
-    if (selectedCategory) {
-      query = query.eq('category_id', selectedCategory);
+      if (searchQuery) {
+        const qlc = searchQuery.toLowerCase();
+        rows = rows.filter(
+          (p) => p.title.toLowerCase().includes(qlc) || p.description.toLowerCase().includes(qlc)
+        );
+      }
+
+      // Attach seller profile summary in batches of 10
+      const sellerIds = Array.from(new Set(rows.map((p) => p.seller_id))).filter(Boolean);
+      const sellerMap: Record<string, { store_name: string; rating_avg: number; logo_url: string | null }> = {};
+      for (let i = 0; i < sellerIds.length; i += 10) {
+        const chunk = sellerIds.slice(i, i + 10);
+        const sellerRef = collection(db, 'seller_profiles');
+        const sellerQ = fsQuery(sellerRef, where(documentId(), 'in', chunk as string[]));
+        const sellerSnap = await getDocs(sellerQ);
+        sellerSnap.forEach((docSnap) => {
+          const d = docSnap.data() as Record<string, unknown> & {
+            store_name: string;
+            rating_avg?: number;
+            logo_url?: string | null;
+          };
+          sellerMap[docSnap.id] = {
+            store_name: d.store_name,
+            rating_avg: (d.rating_avg as number | undefined) ?? 0,
+            logo_url: (d.logo_url as string | null | undefined) ?? null,
+          };
+        });
+      }
+
+      const rowsWithSeller = rows.map((p) => ({
+        ...p,
+        seller_profiles: sellerMap[p.seller_id!],
+      }));
+
+      setProducts(rowsWithSeller);
+    } catch (e) {
+      console.error('Load products failed', e);
+      setProducts([]);
+    } finally {
+      setLoading(false);
     }
-
-    if (searchQuery) {
-      query = query.or(`title.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`);
-    }
-
-    const { data } = await query;
-
-    if (data) {
-      setProducts(data as Product[]);
-    }
-
-    setLoading(false);
   };
 
   return (

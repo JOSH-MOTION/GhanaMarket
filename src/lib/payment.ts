@@ -1,4 +1,3 @@
-import { supabase } from './supabase';
 import type { PaymentMethod, PaymentProvider } from './database.types';
 
 export interface InitiatePaymentParams {
@@ -8,7 +7,7 @@ export interface InitiatePaymentParams {
   provider: PaymentProvider;
   phoneNumber?: string;
   email: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface PaymentResponse {
@@ -48,7 +47,7 @@ export async function initiatePayment(params: InitiatePaymentParams): Promise<Pa
   }
 }
 
-export async function verifyPayment(reference: string): Promise<{ success: boolean; data?: any; error?: string }> {
+export async function verifyPayment(reference: string): Promise<{ success: boolean; data?: unknown; error?: string }> {
   try {
     const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/payment-verify`;
 

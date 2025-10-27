@@ -50,7 +50,7 @@ Deno.serve(async (req: Request) => {
       throw paymentError;
     }
 
-    let paymentResponse: any = {
+    const paymentResponse: Record<string, unknown> = {
       success: true,
       paymentId: payment.id,
       reference,

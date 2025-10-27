@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { MapPin, Heart, Share2, MessageCircle, Star, ChevronLeft, ChevronRight, Store, Package, Shield } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { Heart, Share2, MessageCircle, Star, ChevronLeft, ChevronRight, Store, Shield } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import type { Database } from '../lib/database.types';
+import { db } from '../lib/firebase';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 
 type Product = Database['public']['Tables']['products']['Row'];
 type SellerProfile = Database['public']['Tables']['seller_profiles']['Row'];
@@ -15,7 +16,7 @@ interface ProductDetailPageProps {
 }
 
 export function ProductDetailPage({ productId, onBack, onMessageSeller, onViewStore }: ProductDetailPageProps) {
-  const { profile } = useAuth();
+  useAuth();
   const [product, setProduct] = useState<Product | null>(null);
   const [seller, setSeller] = useState<SellerProfile | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -28,36 +29,27 @@ export function ProductDetailPage({ productId, onBack, onMessageSeller, onViewSt
 
   const loadProduct = async () => {
     setLoading(true);
+    try {
+      const prodSnap = await getDoc(doc(db, 'products', productId));
+      if (!prodSnap.exists()) {
+        setLoading(false);
+        return;
+      }
+      const productData = { id: prodSnap.id, ...(prodSnap.data() as Record<string, unknown>) } as unknown as Product;
+      setProduct(productData);
 
-    const { data: productData, error: productError } = await supabase
-      .from('products')
-      .select('*')
-      .eq('id', productId)
-      .maybeSingle();
+      const sellerSnap = await getDoc(doc(db, 'seller_profiles', productData.seller_id));
+      if (sellerSnap.exists()) {
+        setSeller({ id: sellerSnap.id, ...(sellerSnap.data() as Record<string, unknown>) } as unknown as SellerProfile);
+      }
 
-    if (productError || !productData) {
+      const newViews = (productData.view_count || 0) + 1;
+      await updateDoc(doc(db, 'products', productId), { view_count: newViews });
+    } catch {
+      // ignore
+    } finally {
       setLoading(false);
-      return;
     }
-
-    setProduct(productData);
-
-    const { data: sellerData } = await supabase
-      .from('seller_profiles')
-      .select('*')
-      .eq('id', productData.seller_id)
-      .maybeSingle();
-
-    if (sellerData) {
-      setSeller(sellerData);
-    }
-
-    await supabase
-      .from('products')
-      .update({ view_count: (productData.view_count || 0) + 1 })
-      .eq('id', productId);
-
-    setLoading(false);
   };
 
   const formatPrice = (price: number) => {
