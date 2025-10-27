@@ -1,4 +1,4 @@
-import { MapPin, Eye } from 'lucide-react';
+import { Eye } from 'lucide-react';
 import type { Database } from '../lib/database.types';
 
 type Product = Database['public']['Tables']['products']['Row'] & {

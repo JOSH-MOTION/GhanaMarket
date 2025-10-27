@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { MapPin, Star, MessageCircle, Share2, ChevronLeft, Store, Package, Users } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { Star, MessageCircle, Share2, ChevronLeft, Store, Package, Users } from 'lucide-react';
 import { ProductCard } from '../components/ProductCard';
 import type { Database } from '../lib/database.types';
+import { db } from '../lib/firebase';
+import { collection, getDocs, query as fsQuery, where, orderBy } from 'firebase/firestore';
 
 type SellerProfile = Database['public']['Tables']['seller_profiles']['Row'];
 type Product = Database['public']['Tables']['products']['Row'];
@@ -26,32 +27,30 @@ export function SellerStorePage({ storeSlug, onBack, onProductClick, onMessageSe
 
   const loadStore = async () => {
     setLoading(true);
+    try {
+      // We don't have an index on store_slug -> seller doc id mapping unless we maintain it.
+      // First attempt: try to use a collection query filtering by store_slug.
+      const sellerRef = collection(db, 'seller_profiles');
+      const sellerSnap = await getDocs(fsQuery(sellerRef, where('store_slug', '==', storeSlug)));
+      if (sellerSnap.empty) {
+        setLoading(false);
+        return;
+      }
+      const sellerDoc = sellerSnap.docs[0];
+      const sellerData = { id: sellerDoc.id, ...(sellerDoc.data() as any) } as SellerProfile;
+      setSeller(sellerData);
 
-    const { data: sellerData, error: sellerError } = await supabase
-      .from('seller_profiles')
-      .select('*')
-      .eq('store_slug', storeSlug)
-      .maybeSingle();
-
-    if (sellerError || !sellerData) {
+      const productsRef = collection(db, 'products');
+      const productsSnap = await getDocs(
+        fsQuery(productsRef, where('seller_id', '==', sellerDoc.id), where('status', '==', 'active'), orderBy('created_at', 'desc'))
+      );
+      const rows: Product[] = productsSnap.docs.map((d) => ({ id: d.id, ...(d.data() as Record<string, unknown>) })) as unknown as Product[];
+      setProducts(rows);
+    } catch (e) {
+      setProducts([]);
+    } finally {
       setLoading(false);
-      return;
     }
-
-    setSeller(sellerData);
-
-    const { data: productsData } = await supabase
-      .from('products')
-      .select('*')
-      .eq('seller_id', sellerData.id)
-      .eq('status', 'active')
-      .order('created_at', { ascending: false });
-
-    if (productsData) {
-      setProducts(productsData);
-    }
-
-    setLoading(false);
   };
 
   if (loading) {
