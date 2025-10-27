@@ -1,10 +1,12 @@
 import { useState } from 'react';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { ShoppingBag } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { uploadToCloudinary } from '../lib/cloudinary';
 
 export function AuthPage() {
-  const { signUp, signIn } = useAuth();
+  const { signUp, signIn, user } = useAuth();
+  const navigate = useNavigate();
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -30,6 +32,7 @@ export function AuthPage() {
       if (isLogin) {
         const { error } = await signIn(formData.email, formData.password);
         if (error) throw error;
+        navigate('/', { replace: true });
       } else {
         let avatarUrl: string | undefined;
         let storeLogoUrl: string | undefined;
@@ -52,6 +55,7 @@ export function AuthPage() {
           store_logo_url: storeLogoUrl,
         });
         if (error) throw error;
+        navigate('/', { replace: true });
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'An error occurred';
@@ -60,6 +64,10 @@ export function AuthPage() {
       setLoading(false);
     }
   };
+
+  if (user) {
+    return <Navigate to="/" replace />;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center p-4">
