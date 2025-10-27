@@ -87,11 +87,11 @@ export function HomePage({ onProductClick }: HomePageProps) {
 
     try {
       const productsRef = collection(db, 'products');
-      const constraints: unknown[] = [where('status', '==', 'active'), orderBy('created_at', 'desc'), fsLimit(50)];
+      const constraints = [where('status', '==', 'active') as any, orderBy('created_at', 'desc') as any, fsLimit(50) as any];
       if (selectedCategory) {
-        constraints.unshift(where('category_id', '==', selectedCategory));
+        constraints.unshift(where('category_id', '==', selectedCategory) as any);
       }
-      const q = fsQuery(productsRef, ...(constraints as [unknown, ...unknown[]]));
+      const q = fsQuery(productsRef, ...(constraints as any));
       const snap = await getDocs(q);
       let rows: Product[] = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Record<string, unknown>) })) as unknown as Product[];
 
@@ -216,11 +216,7 @@ export function HomePage({ onProductClick }: HomePageProps) {
         ) : products.length > 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {products.map((product) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                onClick={() => onProductClick?.(product.id)}
-              />
+              <ProductCard key={product.id} product={product} onClick={() => onProductClick?.(product.id)} />
             ))}
           </div>
         ) : (

@@ -1,19 +1,21 @@
-import { useState } from 'react';
+import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { CartProvider } from './contexts/CartContext';
 import { AuthPage } from './pages/AuthPage';
-import { HomePage } from './pages/HomePage';
-import { ProductDetailPage } from './pages/ProductDetailPage';
-import { SellerStorePage } from './pages/SellerStorePage';
+import HomeRoute from './pages/routes/HomeRoute';
+import ProductDetailRoute from './pages/routes/ProductDetailRoute';
+import SellerStoreRoute from './pages/routes/SellerStoreRoute';
+import { CartPage } from './pages/CartPage';
+import { OrdersPage } from './pages/OrdersPage';
+import { OrderDetailPage } from './pages/OrderDetailPage';
+import { MessagesPage } from './pages/MessagesPage';
+import { SellerDashboardPage } from './pages/SellerDashboardPage';
+import { AddProductPage } from './pages/AddProductPage';
+import { ProductStoriesPage } from './pages/ProductStoriesPage';
+import { Header } from './components/Header';
 
-type ViewType =
-  | { type: 'home' }
-  | { type: 'product'; productId: string }
-  | { type: 'store'; storeSlug: string };
-
-function AppContent() {
+function RequireAuth() {
   const { user, loading } = useAuth();
-  const [currentView, setCurrentView] = useState<ViewType>({ type: 'home' });
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -21,50 +23,53 @@ function AppContent() {
       </div>
     );
   }
+  if (!user) return <Navigate to="/auth" replace />;
+  return <Outlet />;
+}
 
-  if (!user) {
-    return <AuthPage />;
-  }
+function RequireSeller() {
+  const { profile } = useAuth();
+  if (profile?.role !== 'seller') return <Navigate to="/" replace />;
+  return <Outlet />;
+}
 
+function WithHeaderLayout() {
   return (
-    <>
-      {currentView.type === 'home' && (
-        <HomePage
-          onProductClick={(productId) => setCurrentView({ type: 'product', productId })}
-        />
-      )}
-
-      {currentView.type === 'product' && (
-        <ProductDetailPage
-          productId={currentView.productId}
-          onBack={() => setCurrentView({ type: 'home' })}
-          onViewStore={(storeSlug) => setCurrentView({ type: 'store', storeSlug })}
-          onMessageSeller={(sellerId) => {
-            console.log('Message seller:', sellerId);
-          }}
-        />
-      )}
-
-      {currentView.type === 'store' && (
-        <SellerStorePage
-          storeSlug={currentView.storeSlug}
-          onBack={() => setCurrentView({ type: 'home' })}
-          onProductClick={(productId) => setCurrentView({ type: 'product', productId })}
-          onMessageSeller={(sellerId) => {
-            console.log('Message seller:', sellerId);
-          }}
-        />
-      )}
-    </>
+    <div className="min-h-screen bg-gray-50">
+      <Header />
+      <Outlet />
+    </div>
   );
 }
 
-function App() {
+export default function App() {
   return (
     <AuthProvider>
-      <AppContent />
+      <CartProvider>
+        <Routes>
+          <Route path="/auth" element={<AuthPage />} />
+
+          <Route element={<RequireAuth />}> 
+            <Route element={<WithHeaderLayout />}> 
+              <Route index element={<HomeRoute />} />
+              <Route path="product/:id" element={<ProductDetailRoute />} />
+              <Route path="store/:slug" element={<SellerStoreRoute />} />
+              <Route path="cart" element={<CartPage />} />
+              <Route path="orders" element={<OrdersPage />} />
+              <Route path="orders/:id" element={<OrderDetailPage />} />
+              <Route path="messages" element={<MessagesPage />} />
+              <Route path="stories" element={<ProductStoriesPage />} />
+
+              <Route element={<RequireSeller />}> 
+                <Route path="dashboard" element={<SellerDashboardPage />} />
+                <Route path="add-product" element={<AddProductPage />} />
+              </Route>
+            </Route>
+          </Route>
+
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </CartProvider>
     </AuthProvider>
   );
 }
-
-export default App;

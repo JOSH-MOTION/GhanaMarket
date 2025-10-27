@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Heart, Share2, MessageCircle, Star, ChevronLeft, ChevronRight, Store, Shield } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useCart } from '../contexts/CartContext';
 import type { Database } from '../lib/database.types';
 import { db } from '../lib/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
@@ -17,6 +18,7 @@ interface ProductDetailPageProps {
 
 export function ProductDetailPage({ productId, onBack, onMessageSeller, onViewStore }: ProductDetailPageProps) {
   useAuth();
+  const { addItem } = useCart();
   const [product, setProduct] = useState<Product | null>(null);
   const [seller, setSeller] = useState<SellerProfile | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -203,8 +205,11 @@ export function ProductDetailPage({ productId, onBack, onMessageSeller, onViewSt
               </div>
 
               <div className="flex gap-3 mb-6">
-                <button className="flex-1 bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors">
-                  Buy Now
+                <button
+                  onClick={() => product && addItem(product, quantity)}
+                  className="flex-1 bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+                >
+                  Add to cart
                 </button>
                 <button
                   onClick={() => onMessageSeller?.(seller.user_id)}

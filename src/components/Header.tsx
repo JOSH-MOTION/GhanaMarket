@@ -1,5 +1,6 @@
 import { Search, ShoppingBag, MessageSquare, User, Menu } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { Link, useNavigate } from 'react-router-dom';
 
 interface HeaderProps {
   onSearch?: (query: string) => void;
@@ -8,6 +9,7 @@ interface HeaderProps {
 
 export function Header({ onSearch, onMenuClick }: HeaderProps) {
   const { profile } = useAuth();
+  const navigate = useNavigate();
 
   return (
     <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
@@ -17,9 +19,9 @@ export function Header({ onSearch, onMenuClick }: HeaderProps) {
             <button onClick={onMenuClick} className="lg:hidden">
               <Menu className="w-6 h-6 text-gray-700" />
             </button>
-            <h1 className="text-xl font-bold text-gray-900">
-              GhanaMarket
-            </h1>
+            <button onClick={() => navigate('/')} className="text-left">
+              <h1 className="text-xl font-bold text-gray-900">GhanaMarket</h1>
+            </button>
           </div>
 
           <div className="flex-1 max-w-xl hidden md:block">
@@ -35,15 +37,13 @@ export function Header({ onSearch, onMenuClick }: HeaderProps) {
           </div>
 
           <div className="flex items-center gap-4">
-            <button className="relative">
+            <Link to="/messages" className="relative">
               <MessageSquare className="w-6 h-6 text-gray-700" />
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-4 h-4 rounded-full flex items-center justify-center">
-                3
-              </span>
-            </button>
-            <button className="relative">
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-4 h-4 rounded-full flex items-center justify-center">3</span>
+            </Link>
+            <Link to="/cart" className="relative">
               <ShoppingBag className="w-6 h-6 text-gray-700" />
-            </button>
+            </Link>
             <button className="flex items-center gap-2">
               {profile?.avatar_url ? (
                 <img
