@@ -8,7 +8,7 @@ interface HeaderProps {
 }
 
 export function Header({ onSearch, onMenuClick }: HeaderProps) {
-  const { profile } = useAuth();
+  const { profile, signOut } = useAuth();
   const navigate = useNavigate();
 
   return (
@@ -44,7 +44,13 @@ export function Header({ onSearch, onMenuClick }: HeaderProps) {
             <Link to="/cart" className="relative">
               <ShoppingBag className="w-6 h-6 text-gray-700" />
             </Link>
-            <button className="flex items-center gap-2">
+            <button
+              className="flex items-center gap-2"
+              onClick={async () => {
+                await signOut();
+                navigate('/auth', { replace: true });
+              }}
+            >
               {profile?.avatar_url ? (
                 <img
                   src={profile.avatar_url}
